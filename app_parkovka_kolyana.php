@@ -138,12 +138,12 @@
 		$cameras_status_string = "";
 		$bot_menu_commands = array();
 		$bot_menu_commands[] = array('command' => "start", 'description' => bot_dictonary("menu_button_command_start_text")); //Добавление стандартных пунктов меню бота
-		if (check_if_olny_one_camera_available(ADMIN_CHAT_ID) === false) { //Если камера не единственная добавляется пугкт меню /all_cameras. (!) Важно, проверка производится от имени ADMIN_CHAT_ID и если он задан некорректно на момент инициализации или не имеет доступа ко всем камерам - логика отработает неверно.
-			$bot_menu_commands[] = array('command' => "all_cameras", 'description' => bot_dictonary("menu_button_command_all_cameras_text"));
-		}
 		for ($i = 0; $i < count(CAMERA); $i++) { //Формирование списка всех камер для сообщения-сводки; Формирование списка всех ENABLED камер для меню бота.
 			$cameras_status_string = $cameras_status_string . (pingInterface(CAMERA[$i]['CONFIG']['IP']) ? "\xF0\x9F\x9F\xA2" : "\xF0\x9F\x9F\xA0") . " /camera$i " . CAMERA[$i]['CONFIG']['NAME'] . "\n" . (CAMERA[$i]['ENABLED'] ? "ENABLED \xE2\x9E\x95, " : "ENABLED \xE2\x9E\x96, ") . (CAMERA[$i]['HISTORY_ENABLED'] ? "HISTORY \xE2\x9E\x95, " : "HISTORY \xE2\x9E\x96, ") . (CAMERA[$i]['REC_ENABLED'] ? "REC \xE2\x9E\x95" : "REC \xE2\x9E\x96") . "\n";
 			if (CAMERA[$i]['ENABLED']) { $bot_menu_commands[] = array('command' => "camera$i", 'description' => bot_dictonary("menu_button_command_camera_i_text", CAMERA[$i]['CONFIG']['NAME'])); }
+		}
+		if (check_if_olny_one_camera_available(ADMIN_CHAT_ID) === false) { //Если камера не единственная добавляется пункт меню /all_cameras. (!) Важно, проверка производится от имени ADMIN_CHAT_ID и если он задан некорректно на момент инициализации или не имеет доступа ко всем камерам - логика отработает неверно.
+			$bot_menu_commands[] = array('command' => "all_cameras", 'description' => bot_dictonary("menu_button_command_all_cameras_text"));
 		}
 		$options_status_string = "\xE2\x9C\x85 OFFLINE_MODE " . ((OFFLINE_MODE) ? "\xE2\x9E\x95" : "\xE2\x9E\x96") . "\n\xE2\x9C\x85 DEBUG_MODE " . ((DEBUG_MODE) ? "\xE2\x9E\x95" : "\xE2\x9E\x96") . "\n\xE2\x9C\x85 DISABLE_SCHEDULER " . ((DISABLE_SCHEDULER) ? "\xE2\x9E\x95" : "\xE2\x9E\x96" . "\n\xE2\x9C\x85 DISABLE_RECORDER ") . ((DISABLE_RECORDER) ? "\xE2\x9E\x95" : "\xE2\x9E\x96");
 		setMyCommands($bot_menu_commands); //В строке выше формирование списка основных опицй для сообщения-сводки
