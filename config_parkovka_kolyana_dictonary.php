@@ -16,6 +16,12 @@
 			"\xF0\x9F\x86\x99 Приложение запущено на #%s\n\n\xF0\x9F\x93\xB9 Камеры:\n%s\n\xF0\x9F\x94\xA7Опции:\n%s",
 			"\xF0\x9F\x86\x99 Задеплоил на #%s\n\n\xF0\x9F\x93\xB9 Камеры:\n%s\n\xF0\x9F\x94\xA7Опции:\n%s"
 		),
+		"app_start_long_polling_text" => array(
+			"\xE2\x8F\xA9 Режим long polling запущен на #%s\n"
+		),
+		"app_stop_long_polling_text" => array(
+			"\xE2\xAC\x9B Режим long polling остановлен на #%s\n"
+		),
 		"wait_message_text" => array(
 			"Сейчас сниму и пришлю... \xF0\x9F\x98\xB8",
 			"Подожди, пошёл за камерой... \xF0\x9F\x99\x8C",
