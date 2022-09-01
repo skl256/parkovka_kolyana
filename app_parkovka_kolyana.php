@@ -184,12 +184,12 @@
 			for ($i = 0; $i < count(CAMERA); $i++) {
 				if (CAMERA[$i]['ENABLED']) {
 					if (CAMERA[$i]['HISTORY_ENABLED']) {
-						$sleep = ASYNC_TASK_RUN_INTERVAL + ASYNC_TASK_RUN_INTERVAL * $i;
+						$sleep = ASYNC_TASK_RUN_INTERVAL * ($i + 1); //Задаёт отсрочку запуска задачи на интервал * порядковый номер камеры
 						async_exec("task_history", $sleep, $i); //Запуск задачи записи историй
 						writeLog("PROCESS", "TASK task_history() FOR CAMERA$i WILL BE LAUNCHED AFTER $sleep SECONDS");
 					}
 					if ((CAMERA[$i]['REC_ENABLED']) && (!DISABLE_RECORDER)) {
-						$sleep = ASYNC_TASK_RUN_INTERVAL * count(CAMERA) + ASYNC_TASK_RUN_INTERVAL * $i;
+						$sleep = ASYNC_TASK_RUN_INTERVAL * (count(CAMERA) + $i + 1); //Задаёт отсрочку запуска задачи на интервал * (кол-во камер + порядковый номер камеры) для того чтобы исключить одновременный запуск задач, с целью снижения пиковой нагрузки на ЦП/сеть/память/диск/...
 						async_exec("task_rec", $sleep, $i); //Запуск задачи записи видеонаблюдения
 						writeLog("PROCESS", "TASK task_rec() FOR CAMERA$i WILL BE LAUNCHED AFTER $sleep SECONDS");
 					}
