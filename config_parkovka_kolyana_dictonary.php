@@ -37,6 +37,10 @@
 			"Вот \xF0\x9F\x91\x86",
 			"\xF0\x9F\x91\x8C"
 		),
+		"last_photo_sent_message_text" => array(
+			"Сейчас не получилось связаться с камерой \xF0\x9F\x98\x94\nНО! Вот последняя фотография которая была сделана %s \xF0\x9F\x93\xBC",
+			"Нет сигнала \xF0\x9F\x93\xB4\nПока могу прислать старую картинку, сфоткал %s \xF0\x9F\x93\xBC"
+		),
 		"button_take_video_text" => array(
 			"Записать %d секунд видео \xF0\x9F\x95\x90"
 		),
@@ -44,7 +48,7 @@
 			"Показать альбом камеры \xF0\x9F\x92\xBD"
 		),
 		"message_to_admin_user_command_success_text" => array(
-			"%s, %s попросил(-а) отправить %s с %s, и я всё отправил \xF0\x9F\x98\xBB"
+			"\xF0\x9F\x91\x8D %s, %s попросил(-а) отправить %s с %s, и я всё отправил \xF0\x9F\x98\xBB"
 		),
 		"message_to_admin_user_command_error_text" => array(
 			"\xF0\x9F\x9A\xA8 %s, проблемы! %s попросил(-а) отправить %s с %s, но у меня не получилось \xF0\x9F\x98\xA2 Подробнее можно узнать в /log"
