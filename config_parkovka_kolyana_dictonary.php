@@ -47,6 +47,9 @@
 		"button_get_album_text" => array(
 			"Показать альбом камеры \xF0\x9F\x92\xBD"
 		),
+		"button_confirm_mailing_text" => array(
+			"Переслать это сообщение всем \xF0\x9F\x93\xA8"
+		),
 		"message_to_admin_user_command_success_text" => array(
 			"\xF0\x9F\x91\x8D %s, %s попросил(-а) отправить %s с %s, и я всё отправил \xF0\x9F\x98\xBB"
 		),
@@ -129,6 +132,9 @@
 		),
 		"message_to_admin_task_rec_error_text" => array(
 			"\xE2\x9A\xA0 %s, нам не удалось выполнить запланированную запись видео с /camera%s (ошибка на %s сек., подробнее - в /log)"
+		),
+		"message_to_admin_mailing_done_text" => array(
+			"\xF0\x9F\x93\xA8 %s, я переслал это сообщение (отправлено сообщений %d, всего авторизированных пользователей %d)"
 		)
 	));
 ?>

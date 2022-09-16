@@ -1,6 +1,6 @@
 <?php
 
-	//Parkovka Kolyana v 2022-09-03-05-33 https://t.me/skl256 https://github.com/skl256/parkovka_kolyana.git
+	//Parkovka Kolyana v 2022-09-16-22-05 https://t.me/skl256 https://github.com/skl256/parkovka_kolyana.git
 	
 	//Использование:
 	//0. Установить необходимые компоненты, если ещё не установлены: apt install -y nginx php php-fpm php-curl php-mbstring ffmpeg iputils-ping git cron
@@ -76,7 +76,7 @@
 			$line = !empty($update['message']['text']) ? trim(mb_strtolower($update[$update_type]['text'])) : trim($update[$update_type]['data']);//строка сообщения (приведена к строчным буквам и убраны лишние пробелы) или callback'а (только убраны лишние пробелы)
 			writeLog("INBOX", "RECEIVED $update_type FROM $from_id $first_name IN CHAT $chat_id TEXT $line");
 			if ((!OFFLINE_MODE) && (in_array($from_id, AUTHORIZED_ID))) { //Если приложение не отключено OFFLINE_MODE и пользователь имеет доступ к приложению  AUTHORIZED_ID
-				if (!bot_command($update_type, $from_id, $first_name, $chat_id, $line)) {//Пытается распознать команду используя функцию распознавания и сразу эе выполняет её в рамках функции
+				if (!bot_command($update_type, $from_id, $first_name, $chat_id, $line, $update)) {//Пытается распознать команду используя функцию распознавания и сразу же выполняет её в рамках функции
 					sendMessage($chat_id, bot_dictonary("message_to_user_unknownword_text", SUPPORT_CONTACT[1], SUPPORT_CONTACT[2]));//Если команда неизвестна сообщает пользователю об ошибке, без сообщения администратору
 					writeLog("UNKNOWNWORD", "LINE $line NOT RECONIZED AS COMMAND, DETAILS: UPDATE_TYPE $update_type FROM $from_id $first_name IN CHAT $chat_id");
 				}
@@ -96,7 +96,7 @@
 		}
 	}
 	
-	function bot_command($update_type, $from_id, $first_name, $chat_id, $line) { //Обрабатывая входящий текст распознаёт команду боту или возвращает false
+	function bot_command($update_type, $from_id, $first_name, $chat_id, $line, $raw_update) { //Обрабатывая входящий текст распознаёт команду боту или возвращает false
 		if ($line == "/start") { //Команда /start
 			async_exec("command_start", 0, $from_id, $chat_id);
 			return true;
@@ -126,6 +126,13 @@
 			$offset = (isset($vars[1]) && is_numeric($vars[1])) ? $vars[1] : 0;
 			async_exec("command_album", 0, $from_id, $first_name, $chat_id, $camera_id, $offset);
 			return true;
+		} else if (($update_type == "callback_query") && (mb_substr_count($line, "mailing")) && (is_numeric(mb_substr($line, 7)))) { //Нажатие контекстной конпки подтверждения рассылки
+			$message_id = mb_substr($line, 7);
+			async_exec("command_mailing", 0, $from_id, $chat_id, $message_id, true);
+			return true;
+		}	else if ($from_id == ADMIN_CHAT_ID) { //Команда mailing (запускается только если не подошли другие варианты, тогда считаем что администратор хочет запустить рассылку)
+			async_exec("command_mailing", 0, $from_id, $chat_id, $raw_update['message']['message_id'], false);
+			return true;
 		}
 		return false;
 	}
@@ -145,7 +152,7 @@
 		if (featury_check_if_olny_one_camera_available(ADMIN_CHAT_ID) === false) { //Если камера не единственная добавляется пункт меню /all_cameras. (!) Важно, проверка производится от имени ADMIN_CHAT_ID и если он задан некорректно на момент инициализации или не имеет доступа ко всем камерам - логика отработает неверно.
 			$bot_menu_commands[] = array('command' => "all_cameras", 'description' => bot_dictonary("menu_button_command_all_cameras_text"));
 		}
-		$options_status_string = "\xE2\x9C\x85 OFFLINE_MODE " . ((OFFLINE_MODE) ? "\xE2\x9E\x95" : "\xE2\x9E\x96") . "\n\xE2\x9C\x85 DEBUG_MODE " . ((DEBUG_MODE) ? "\xE2\x9E\x95" : "\xE2\x9E\x96") . "\n\xE2\x9C\x85 DISABLE_SCHEDULER " . ((DISABLE_SCHEDULER) ? "\xE2\x9E\x95" : "\xE2\x9E\x96" . "\n\xE2\x9C\x85 DISABLE_RECORDER ") . ((DISABLE_RECORDER) ? "\xE2\x9E\x95" : "\xE2\x9E\x96");
+		$options_status_string = "\xE2\x9C\x85 OFFLINE_MODE " . ((OFFLINE_MODE) ? "\xE2\x9E\x95" : "\xE2\x9E\x96") . "\n\xE2\x9C\x85 DEBUG_MODE " . ((DEBUG_MODE) ? "\xE2\x9E\x95" : "\xE2\x9E\x96") . "\n\xE2\x9C\x85 DISABLE_SCHEDULER " . ((DISABLE_SCHEDULER) ? "\xE2\x9E\x95" : "\xE2\x9E\x96") . "\n\xE2\x9C\x85 DISABLE_RECORDER " . ((DISABLE_RECORDER) ? "\xE2\x9E\x95" : "\xE2\x9E\x96");
 		setMyCommands($bot_menu_commands); //В строке выше формирование списка основных опицй для сообщения-сводки
 		sendMessage(ADMIN_CHAT_ID, bot_dictonary("app_init_text", getTag(), $cameras_status_string, $options_status_string)); //Отправка сообщения-сводки с именем экзампляра или хоста, списком всех камер и основных опций.
 	}
@@ -184,12 +191,12 @@
 			for ($i = 0; $i < count(CAMERA); $i++) {
 				if (CAMERA[$i]['ENABLED']) {
 					if (CAMERA[$i]['HISTORY_ENABLED']) {
-						$sleep = ASYNC_TASK_RUN_INTERVAL + ASYNC_TASK_RUN_INTERVAL * $i;
+						$sleep = ASYNC_TASK_RUN_INTERVAL * ($i + 1); //Задаёт отсрочку запуска задачи на интервал * порядковый номер камеры
 						async_exec("task_history", $sleep, $i); //Запуск задачи записи историй
 						writeLog("PROCESS", "TASK task_history() FOR CAMERA$i WILL BE LAUNCHED AFTER $sleep SECONDS");
 					}
 					if ((CAMERA[$i]['REC_ENABLED']) && (!DISABLE_RECORDER)) {
-						$sleep = ASYNC_TASK_RUN_INTERVAL * count(CAMERA) + ASYNC_TASK_RUN_INTERVAL * $i;
+						$sleep = ASYNC_TASK_RUN_INTERVAL * (count(CAMERA) + $i + 1); //Задаёт отсрочку запуска задачи на интервал * (кол-во камер + порядковый номер камеры) для того чтобы исключить одновременный запуск задач, с целью снижения пиковой нагрузки на ЦП/сеть/память/диск/...
 						async_exec("task_rec", $sleep, $i); //Запуск задачи записи видеонаблюдения
 						writeLog("PROCESS", "TASK task_rec() FOR CAMERA$i WILL BE LAUNCHED AFTER $sleep SECONDS");
 					}
@@ -332,10 +339,6 @@
 	function command_camera($from_id, $first_name, $chat_id, $camera_id) { //Отправляет фото с $camera_id
 		if ((CAMERA[$camera_id]['ENABLED']) && (in_array($from_id, CAMERA[$camera_id]['ACCESS']))) { //Проверяет что камера ENABLED и у пользователя есть к ней доступ ACCESS
 			$wait_message_id = sendMessage($chat_id, bot_dictonary("wait_message_text")); //Отправляет сообщение с просьбой подождать, после получения любого резульата удаляет его
-			$inline_keyboard_keys[] = createInlineKey(bot_dictonary("button_take_video_text", CALLBACK_REQUESTED_VIDEO_DURATION), "video$camera_id " . CALLBACK_REQUESTED_VIDEO_DURATION);//Добавляет контекстную кнопку записи видеоклипа
-			if ((CAMERA[$camera_id]['HISTORY_ENABLED']) && (in_array($from_id, CAMERA[$camera_id]['HISTORY_ACCESS']))) {//Если у камеры включены истории HISTORY_ENABLED и пользователь имеет к ним доступ HISTORY_ACCESS
-				$inline_keyboard_keys[] = createInlineKey(bot_dictonary("button_get_album_text"), "album$camera_id 0");//Добавляет контекстную кнопку получения историй
-			}
 			$retry_count = ATTEMPTS_TO_GET_PHOTO_VIDEO;
 			$get_from_ip_webcam_result = false;
 			$filemtime = 0;
@@ -346,7 +349,7 @@
 			} while ((!$get_from_ip_webcam_result) && ($retry_count > 0)); //При необходимости повторяет попытку
 			deleteMessage($chat_id, $wait_message_id); //Удаляет сообщение с просьбой подождать.
 			$filename = ($get_from_ip_webcam_result) ? ($get_from_ip_webcam_result) : (featury_get_last_available_photo($camera_id, $from_id, $filemtime)); //Если результат получения фото с камеры успешный, файл для отправки - полученное фото, иначе, пробудем получить последнее фото из историй (если соблюдены условия просмотра альбома)
-			$send_message_result = sendPhoto($chat_id, ($get_from_ip_webcam_result) ? (bot_dictonary("photo_sent_message_text")) : (bot_dictonary("last_photo_sent_message_text", date("Y.m.d H:i", $filemtime))), $filename, createInlineKeyboard(...$inline_keyboard_keys)); //Не проверяя успешность пытаетмя отправить фото (т.к. если фото нет, отправка сообщения всё равно будет неудачной);
+			$send_message_result = sendPhoto($chat_id, ($get_from_ip_webcam_result) ? (bot_dictonary("photo_sent_message_text")) : (bot_dictonary("last_photo_sent_message_text", date("Y.m.d H:i", $filemtime))), $filename, featury_make_inline_keyboard_for_photo($from_id, $camera_id, $get_from_ip_webcam_result)); //Не проверяя успешность пытаетмя отправить фото (т.к. если фото нет, отправка сообщения всё равно будет неудачной);
 			if ($send_message_result) { //При получении ответа об успешной отправке от Telegram API //Сообщает администратору об успешном выполнении пользовательской команды //Либо о не совсем успешном - когда получилось отправить только фото из альбома.
 				if (($get_from_ip_webcam_result) && (($from_id != ADMIN_CHAT_ID) && (NOTIFY_ADMIN_USER_ACTIONS_SUCCESS))) { sendMessage(ADMIN_CHAT_ID, bot_dictonary("message_to_admin_user_command_success_text", SUPPORT_CONTACT[0], $first_name, "фото", "/camera$camera_id")); }
 				if ((!$get_from_ip_webcam_result) && (($from_id != ADMIN_CHAT_ID) && (NOTIFY_ADMIN_USER_ACTIONS_ERROR))) { sendMessage(ADMIN_CHAT_ID, bot_dictonary("message_to_admin_user_command_warn_text", SUPPORT_CONTACT[0], $first_name, "наверное свежую фотку", "/camera$camera_id", "только из альбома, свежей")); }
@@ -439,6 +442,26 @@
 		}
 	}
 	
+	function command_mailing($from_id, $chat_id, $message_id, $confirmed = false) { //Выполняет рассылку сообщения с message_id всем AUTHORIZED_ID
+		if ($from_id == ADMIN_CHAT_ID) { //Проверяет что сообщение от администратора (дублирующая проверка для целей обратной совместимости)
+			if (!$confirmed) { //Если сообщение только получено
+				$message_for_confirm = copyMessage($chat_id, $from_id, $message_id, createInlineKeyboard(createInlineKey(bot_dictonary("button_confirm_mailing_text"), "mailing$message_id"))); //Отправляет сообщение отправителю на проверку
+				async_exec("editMessageReplyMarkup", DISPLAY_CONTEXT_KEYBOARD_TIMEOUT, $chat_id, $message_for_confirm); //Создаёт отложенную на DISPLAY_CONTEXT_KEYBOARD_TIMEOUT задачу удалить контекстные кнопки
+			} else {
+				$sent_messages_count = 0;
+				$mailing_method = MAILING_METHOD; //Метод рассылки сообщений пользователям (forwardMessage - сообщение от администратора будет отображаться пользователю как пересланное, copyMessage - сообщение будет отображаться как просто отправленное ботом)
+				writeLog("PROCESS", "BEGIN MAILING MESSAGE_ID $message_id METHOD $mailing_method");
+				foreach (AUTHORIZED_ID as $recipient_chat_id) {
+					if ($mailing_method($recipient_chat_id, $from_id, $message_id)) { //Копирует или пересылает сообщение каждому AUTHORIZED_ID, и если сообщение отправлено
+						$sent_messages_count++; //считает как успешно отправлено
+					}
+				}
+				writeLog("PROCESS", "END MAILING, SENT $sent_messages_count OF " . count(AUTHORIZED_ID) . " MESSAGES");
+				sendMessage($chat_id, bot_dictonary("message_to_admin_mailing_done_text", SUPPORT_CONTACT[0], $sent_messages_count, count(AUTHORIZED_ID))); //Сообщает администратору о выполнении команды
+			}
+		} //Так как данная проверка только для целей обратной совместимости, и сценарий её Не прохождения маловероятен, т.к. bot_command не должен осуществлять вызов command_mailing не от ADMIN_CHAT_ID, блок else опущен
+	}
+	
 	function featury_get_last_available_photo($camera_id, $from_id, &$filemtime = 0) { //Получает последнее фото из альбома камеры (если камера ENABLED, истории HISTORY_ENABLED, и пользователь имеет доступ ACCESS и HISTORY_ACCESS
 		if ((CAMERA[$camera_id]['ENABLED']) && (CAMERA[$camera_id]['HISTORY_ENABLED']) && (in_array($from_id, CAMERA[$camera_id]['ACCESS'])) && (in_array($from_id, CAMERA[$camera_id]['HISTORY_ACCESS']))) { //Проверяет что камера ENABLED и у пользователя есть к ней доступ ACCESS, дополнительно проверяет что истории включены HISTORY_ENABLED и у пользователя есть доступ к историям HISTORY_ACCESS
 			$history_filename = HISTORY_PATH . "history_CAMERA$camera_id" . "_" . CAMERA[$camera_id]['CONFIG']['NAME'] . "_" . LOG_PATH_SECRET . ".txt"; //Формирует имя файла где будет произведён поиск индекса историй
@@ -468,6 +491,18 @@
 		} else {
 			return false;
 		}
+	}
+	
+	function featury_make_inline_keyboard_for_photo($from_id, $camera_id, $get_from_ip_webcam_result = false) { //Создаёт контекстную клавиатуру для отправки вместе с фото
+		$inline_keyboard_keys = array();
+		$callback_requested_video_duration = (isset(CAMERA[$camera_id]['CALLBACK_REQUESTED_VIDEO_DURATION'])) ? CAMERA[$camera_id]['CALLBACK_REQUESTED_VIDEO_DURATION'] :  CALLBACK_REQUESTED_VIDEO_DURATION; //Дляительность видео, которое может запросить пользователь - если не определено для конкретной камеры то используем глобальный параметр
+		if (($callback_requested_video_duration != 0) && ($get_from_ip_webcam_result)) { //Если запрос видео не отключен (параметр длительности 0) и если фото было умпешно получено с камеры (get_from_ip_webcam_result != false)
+			$inline_keyboard_keys[] = createInlineKey(bot_dictonary("button_take_video_text", $callback_requested_video_duration), "video$camera_id " . $callback_requested_video_duration);//Добавляет контекстную кнопку записи видеоклипа
+		}
+		if ((CAMERA[$camera_id]['HISTORY_ENABLED']) && (in_array($from_id, CAMERA[$camera_id]['HISTORY_ACCESS']))) {//Если у камеры включены истории HISTORY_ENABLED и пользователь имеет к ним доступ HISTORY_ACCESS
+			$inline_keyboard_keys[] = createInlineKey(bot_dictonary("button_get_album_text"), "album$camera_id 0");//Добавляет контекстную кнопку получения историй
+		}
+		return (!empty($inline_keyboard_keys)) ? createInlineKeyboard(...$inline_keyboard_keys) : null; //Если создана хоть одна кнопка возвращаем клавиатуру, иначе null
 	}
 	
 	if ((!empty($argv)) && ($argc > 1)) { //Проверяет, запущено ли приложение через CLI и имеет ли более 1 агрумента (т.к. 1 это имя скрипта, следовательно, запуск без аргументов будет иметь $argc = 1)
