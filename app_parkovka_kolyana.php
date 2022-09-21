@@ -1,6 +1,6 @@
 <?php
 
-	//Parkovka Kolyana v 2022-09-16-22-05 https://t.me/skl256 https://github.com/skl256/parkovka_kolyana.git
+	//Parkovka Kolyana v 2022-09-22-01-00 https://t.me/skl256 https://github.com/skl256/parkovka_kolyana.git
 	
 	//Использование:
 	//0. Установить необходимые компоненты, если ещё не установлены: apt install -y nginx php php-fpm php-curl php-mbstring ffmpeg iputils-ping git cron
@@ -130,7 +130,14 @@
 			$message_id = mb_substr($line, 7);
 			async_exec("command_mailing", 0, $from_id, $chat_id, $message_id, true);
 			return true;
-		}	else if ($from_id == ADMIN_CHAT_ID) { //Команда mailing (запускается только если не подошли другие варианты, тогда считаем что администратор хочет запустить рассылку)
+		} else if (($update_type == "callback_query") && (mb_substr_count($line, "get_message")) && (is_numeric(mb_substr(explode(" ", $line)[0], 11)))) { //Нажатие контекстной конпки запроса копии сообщения
+			$vars = explode(" ", $line);
+			$message_id = mb_substr($vars[0], 11);
+			$from_chat_id = (isset($vars[1]) && is_numeric($vars[1])) ? $vars[1] : 0;
+			$media_group_messages_count = (isset($vars[2]) && is_numeric($vars[2])) ? $vars[2] : 0;
+			async_exec("command_get_message", 0, $from_id, $chat_id, $message_id, $from_chat_id, $media_group_messages_count);
+			return true;
+		} else if ($from_id == ADMIN_CHAT_ID) { //Команда mailing (запускается только если не подошли другие варианты, тогда считаем что администратор хочет запустить рассылку)
 			async_exec("command_mailing", 0, $from_id, $chat_id, $raw_update['message']['message_id'], false);
 			return true;
 		}
@@ -291,9 +298,9 @@
 			}
 			if  ($send_message_result) { //При получении ответа об успешной отправке от Telegram API
 				if (count($images_from_all_available_cameras) == $available_cameras_cameras_count) {//Сообщает администратору об успешном выполнении пользовательской команды
-					if (($from_id != ADMIN_CHAT_ID) && (NOTIFY_ADMIN_USER_ACTIONS_SUCCESS)) { sendMessage(ADMIN_CHAT_ID, bot_dictonary("message_to_admin_user_command_success_text", SUPPORT_CONTACT[0], $first_name, "фотографии", "камер всех")); }
+					if (($from_id != ADMIN_CHAT_ID) && (NOTIFY_ADMIN_USER_ACTIONS_SUCCESS)) { sendMessage(ADMIN_CHAT_ID, bot_dictonary("message_to_admin_user_command_success_text", SUPPORT_CONTACT[0], $first_name, "фотографии", "камер всех"), createInlineKeyboard(createInlineKey(bot_dictonary("button_get_message_copy_text"), "get_message$send_message_result $chat_id " . (count($images_from_all_available_cameras) - 1)))); }
 				} else {//Сообщает администратору об частично неуспешном выполнении пользовательской команды (кол-во изображений не равно кол-ву доступных ENABLED и доступных пользователю ACCESS камер)
-					if (($from_id != ADMIN_CHAT_ID) && (NOTIFY_ADMIN_USER_ACTIONS_ERROR)) { sendMessage(ADMIN_CHAT_ID, bot_dictonary("message_to_admin_user_command_warn_text", SUPPORT_CONTACT[0], $first_name, "фотографии", "камер всех", ($available_cameras_cameras_count - count($images_from_all_available_cameras)))); }
+					if (($from_id != ADMIN_CHAT_ID) && (NOTIFY_ADMIN_USER_ACTIONS_ERROR)) { sendMessage(ADMIN_CHAT_ID, bot_dictonary("message_to_admin_user_command_warn_text", SUPPORT_CONTACT[0], $first_name, "фотографии", "камер всех", ($available_cameras_cameras_count - count($images_from_all_available_cameras))), createInlineKeyboard(createInlineKey(bot_dictonary("button_get_message_copy_text"), "get_message$send_message_result $chat_id " . (count($images_from_all_available_cameras) - 1)))); }
 				}
 			} else { //При получении ответа об ошибке при отправке от Telegram API
 				sendMessage($chat_id, bot_dictonary("message_to_user_user_command_error_try_again_text")); //Сообщает пользователю об ошибке, если пользователь не администратор дополнительно сообщает администратору
@@ -351,8 +358,8 @@
 			$filename = ($get_from_ip_webcam_result) ? ($get_from_ip_webcam_result) : (featury_get_last_available_photo($camera_id, $from_id, $filemtime)); //Если результат получения фото с камеры успешный, файл для отправки - полученное фото, иначе, пробудем получить последнее фото из историй (если соблюдены условия просмотра альбома)
 			$send_message_result = sendPhoto($chat_id, ($get_from_ip_webcam_result) ? (bot_dictonary("photo_sent_message_text")) : (bot_dictonary("last_photo_sent_message_text", date("Y.m.d H:i", $filemtime))), $filename, featury_make_inline_keyboard_for_photo($from_id, $camera_id, $get_from_ip_webcam_result)); //Не проверяя успешность пытаетмя отправить фото (т.к. если фото нет, отправка сообщения всё равно будет неудачной);
 			if ($send_message_result) { //При получении ответа об успешной отправке от Telegram API //Сообщает администратору об успешном выполнении пользовательской команды //Либо о не совсем успешном - когда получилось отправить только фото из альбома.
-				if (($get_from_ip_webcam_result) && (($from_id != ADMIN_CHAT_ID) && (NOTIFY_ADMIN_USER_ACTIONS_SUCCESS))) { sendMessage(ADMIN_CHAT_ID, bot_dictonary("message_to_admin_user_command_success_text", SUPPORT_CONTACT[0], $first_name, "фото", "/camera$camera_id")); }
-				if ((!$get_from_ip_webcam_result) && (($from_id != ADMIN_CHAT_ID) && (NOTIFY_ADMIN_USER_ACTIONS_ERROR))) { sendMessage(ADMIN_CHAT_ID, bot_dictonary("message_to_admin_user_command_warn_text", SUPPORT_CONTACT[0], $first_name, "наверное свежую фотку", "/camera$camera_id", "только из альбома, свежей")); }
+				if (($get_from_ip_webcam_result) && (($from_id != ADMIN_CHAT_ID) && (NOTIFY_ADMIN_USER_ACTIONS_SUCCESS))) { sendMessage(ADMIN_CHAT_ID, bot_dictonary("message_to_admin_user_command_success_text", SUPPORT_CONTACT[0], $first_name, "фото", "/camera$camera_id"), createInlineKeyboard(createInlineKey(bot_dictonary("button_get_message_copy_text"), "get_message$send_message_result $chat_id"))); }
+				if ((!$get_from_ip_webcam_result) && (($from_id != ADMIN_CHAT_ID) && (NOTIFY_ADMIN_USER_ACTIONS_ERROR))) { sendMessage(ADMIN_CHAT_ID, bot_dictonary("message_to_admin_user_command_warn_text", SUPPORT_CONTACT[0], $first_name, "наверное свежую фотку", "/camera$camera_id", "только из альбома, свежей"), createInlineKeyboard(createInlineKey(bot_dictonary("button_get_message_copy_text"), "get_message$send_message_result $chat_id"))); }
 				async_exec("editMessageReplyMarkup", DISPLAY_CONTEXT_KEYBOARD_TIMEOUT, $chat_id, $send_message_result); //Создаёт отложенную на DISPLAY_CONTEXT_KEYBOARD_TIMEOUT задачу удалить контекстные кнопки
 			} else { //При получении ответа об ошибке от Telegram API
 				sendMessage($chat_id, bot_dictonary("message_to_user_user_command_error_try_again_text")); //Сообщает пользователю об ошибке, если пользователь не администратор дополнительно сообщает администратору
@@ -379,7 +386,7 @@
 			deleteMessage($chat_id, $wait_message_id); //Не проверяя успешность пытаетмя отправить фото (т.к. если фото нет, отправка сообщения всё равно будет неудачной); Удаляет сообщение с просьбой подождать.
 			$send_message_result = sendVideo($chat_id, bot_dictonary("photo_sent_message_text"), $get_from_ip_webcam_result);
 			if ($send_message_result) { //При получении ответа об успешной отправке от Telegram API //Сообщает администратору об успешном выполнении пользовательской команды
-				if (($from_id != ADMIN_CHAT_ID) && (NOTIFY_ADMIN_USER_ACTIONS_SUCCESS)) { sendMessage(ADMIN_CHAT_ID, bot_dictonary("message_to_admin_user_command_success_text", SUPPORT_CONTACT[0], $first_name, "видео", "/camera$camera_id")); }
+				if (($from_id != ADMIN_CHAT_ID) && (NOTIFY_ADMIN_USER_ACTIONS_SUCCESS)) { sendMessage(ADMIN_CHAT_ID, bot_dictonary("message_to_admin_user_command_success_text", SUPPORT_CONTACT[0], $first_name, "видео", "/camera$camera_id"), createInlineKeyboard(createInlineKey(bot_dictonary("button_get_message_copy_text"), "get_message$send_message_result $chat_id"))); }
 			} else { //При получении ответа об ошибке от Telegram API
 				sendMessage($chat_id, bot_dictonary("message_to_user_user_command_error_try_again_text")); //Сообщает пользователю об ошибке, если пользователь не администратор дополнительно сообщает администратору
 				if (($from_id != ADMIN_CHAT_ID) && (NOTIFY_ADMIN_USER_ACTIONS_ERROR)) { sendMessage(ADMIN_CHAT_ID, bot_dictonary("message_to_admin_user_command_error_text", SUPPORT_CONTACT[0], $first_name, "видео", "/camera$camera_id")); }
@@ -424,7 +431,7 @@
 					} else { //Если изображений не осталось отправляет сообщение пользователю с данной информацией
 						sendMessage($chat_id, bot_dictonary("label_album_no_more_text")); 
 					} //Сообщает администратору об успешном выполнении пользовательской команды но только для перой странциы альбома, чтобы не дублировать сообщения при пролистывании в глубину
-					if (($from_id != ADMIN_CHAT_ID) && ($offset == 0)  && (NOTIFY_ADMIN_USER_ACTIONS_SUCCESS)) { sendMessage(ADMIN_CHAT_ID, bot_dictonary("message_to_admin_user_command_success_text", SUPPORT_CONTACT[0], $first_name, "альбом", "/camera$camera_id")); }
+					if (($from_id != ADMIN_CHAT_ID) && ($offset == 0)  && (NOTIFY_ADMIN_USER_ACTIONS_SUCCESS)) { sendMessage(ADMIN_CHAT_ID, bot_dictonary("message_to_admin_user_command_success_text", SUPPORT_CONTACT[0], $first_name, "альбом", "/camera$camera_id"), createInlineKeyboard(createInlineKey(bot_dictonary("button_get_message_copy_text"), "get_message$send_message_result $chat_id " . (count($files_to_send) - 1)))); }
 				} else { //При получении ответа об ошибке от Telegram API
 					sendMessage($chat_id, bot_dictonary("message_to_user_user_command_error_try_again_text")); //Сообщает пользователю об ошибке, если пользователь не администратор дополнительно сообщает администратору
 					if (($from_id != ADMIN_CHAT_ID) && (NOTIFY_ADMIN_USER_ACTIONS_ERROR)) { sendMessage(ADMIN_CHAT_ID, bot_dictonary("message_to_admin_user_command_error_text", SUPPORT_CONTACT[0], $first_name, "альбом", "/camera$camera_id")); }
@@ -462,6 +469,15 @@
 		} //Так как данная проверка только для целей обратной совместимости, и сценарий её Не прохождения маловероятен, т.к. bot_command не должен осуществлять вызов command_mailing не от ADMIN_CHAT_ID, блок else опущен
 	}
 	
+	function command_get_message($from_id, $chat_id, $message_id, $from_chat_id, $media_group_messages_count = 0) { //Пересылает сообщение message_id из чата from_chat_id в чат из которого запросили пересылку chat_id
+		if ($from_id == ADMIN_CHAT_ID) { //Проверяет что сообщение от администратора //; media_group_messages_count должен быть на 1 меньше чем кол-во фактически сообщения в группе
+			for ($i = 0; $i <= $media_group_messages_count; $i++) { // Если объектом пересылки является MediaGroup - каждое сообщение из группы пересылается отдельно.
+				writeLog("PROCESS", "BEGIN FORWARD MESSAGE $message_id + $i (FROM CHAT $from_chat_id) TO $chat_id");
+				forwardMessage($chat_id, $from_chat_id, $message_id + $i);//Пересылает сообщение message_id из чата from_chat_id в чат из которого запросили пересылку chat_id 
+			}
+		} //Так как, кнопка вызова получения копии сообщения появляется только у администратора, данная проверка осуществяется только для целей дополнительной безопасности, и сценарий её Не прохождения маловероятен (поэтому действия else отсутствуют)
+	}
+	
 	function featury_get_last_available_photo($camera_id, $from_id, &$filemtime = 0) { //Получает последнее фото из альбома камеры (если камера ENABLED, истории HISTORY_ENABLED, и пользователь имеет доступ ACCESS и HISTORY_ACCESS
 		if ((CAMERA[$camera_id]['ENABLED']) && (CAMERA[$camera_id]['HISTORY_ENABLED']) && (in_array($from_id, CAMERA[$camera_id]['ACCESS'])) && (in_array($from_id, CAMERA[$camera_id]['HISTORY_ACCESS']))) { //Проверяет что камера ENABLED и у пользователя есть к ней доступ ACCESS, дополнительно проверяет что истории включены HISTORY_ENABLED и у пользователя есть доступ к историям HISTORY_ACCESS
 			$history_filename = HISTORY_PATH . "history_CAMERA$camera_id" . "_" . CAMERA[$camera_id]['CONFIG']['NAME'] . "_" . LOG_PATH_SECRET . ".txt"; //Формирует имя файла где будет произведён поиск индекса историй
@@ -469,11 +485,14 @@
 			if ((file_exists($history_filename)) && (filesize($history_filename) > 0)) { //Если файл с индексом существует и имеет ненулевой размер
 				$history_file_lines = file($history_filename, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES); //Считывает все строчки без знаков переноса и без пустых строк
 				if ((file_exists($history_file_lines[count($history_file_lines) - 1])) && (filesize($history_file_lines[count($history_file_lines) - 1]) > 0)) {
-					$filemtime = filemtime($history_file_lines[count($history_file_lines) - 1]);
-					return $history_file_lines[count($history_file_lines) - 1];
+					$last_available_photo = $history_file_lines[count($history_file_lines) - 1]; //Получает последнюю строку из history_file
+					$filemtime = filemtime($last_available_photo); //Получает дату изменения файла
+					writeLog("PROCESS", "featury_get_last_available_photo($camera_id, $from_id, filemtime) FOUND FILE: $last_available_photo FILEMTIME: $filemtime");
+					return $last_available_photo;
 				}
 			}
 		}
+		writeLog("PROCESS", "featury_get_last_available_photo($camera_id, $from_id, filemtime) DOES NOT HAVE CONDITIONS FOR FILE SEARCH"); // Поиск произведён не будет, т.к. нет логических условий
 		return false;
 	}
 	

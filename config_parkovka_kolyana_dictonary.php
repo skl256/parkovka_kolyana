@@ -38,8 +38,8 @@
 			"\xF0\x9F\x91\x8C"
 		),
 		"last_photo_sent_message_text" => array(
-			"Сейчас не получилось связаться с камерой \xF0\x9F\x98\x94\nНО! Вот последняя фотография которая была сделана %s \xF0\x9F\x93\xBC",
-			"Нет сигнала \xF0\x9F\x93\xB4\nПока могу прислать старую картинку, сфоткал %s \xF0\x9F\x93\xBC"
+			"Сейчас не получилось связаться с камерой \xF0\x9F\x98\x94\nНО! Вот последняя фотография которая была сделана %s \xF0\x9F\x92\xBE",
+			"Нет сигнала \xF0\x9F\x93\xB4\nПока могу прислать старую картинку, сфоткал %s \xF0\x9F\x92\xBE"
 		),
 		"button_take_video_text" => array(
 			"Записать %d секунд видео \xF0\x9F\x95\x90"
@@ -49,6 +49,9 @@
 		),
 		"button_confirm_mailing_text" => array(
 			"Переслать это сообщение всем \xF0\x9F\x93\xA8"
+		),
+		"button_get_message_copy_text" => array(
+			"Получить копию сообщения \xF0\x9F\x93\xA9"
 		),
 		"message_to_admin_user_command_success_text" => array(
 			"\xF0\x9F\x91\x8D %s, %s попросил(-а) отправить %s с %s, и я всё отправил \xF0\x9F\x98\xBB"
@@ -119,13 +122,13 @@
 			"\xF0\x9F\x9A\xA8 %s, нам написал(-а) %s, с просьбой показать логи, но я ничего никому не покажу \xF0\x9F\x98\x8F"
 		),
 		"menu_button_command_start_text" => array(
-			"Главное меню и список камер"
+			"Меню и список камер"
 		),
 		"menu_button_command_all_cameras_text" => array(
 			"Картинка сразу со всех камер"
 		),
 		"menu_button_command_camera_i_text" => array(
-			"Камера которая %s"
+			"Камера %s"
 		),
 		"message_to_admin_task_history_error_text" => array(
 			"\xE2\x9A\xA0 %s, нам не удалось получить изображение с /camera%s для альбома (подробнее - в /log)"
