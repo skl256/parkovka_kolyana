@@ -1,6 +1,6 @@
 <?php
 
-	//Parkovka Kolyana v 2022-09-22-01-00 https://t.me/skl256 https://github.com/skl256/parkovka_kolyana.git
+	//Parkovka Kolyana v 2022-09-25-22-15 https://t.me/skl256 https://github.com/skl256/parkovka_kolyana.git
 	
 	//Использование:
 	//0. Установить необходимые компоненты, если ещё не установлены: apt install -y nginx php php-fpm php-curl php-mbstring ffmpeg iputils-ping git cron
@@ -150,17 +150,11 @@
 		}
 		writeLog("PROCESS", "app_init() AT #" . getTag());
 		$cameras_status_string = "";
-		$bot_menu_commands = array();
-		$bot_menu_commands[] = array('command' => "start", 'description' => bot_dictonary("menu_button_command_start_text")); //Добавление стандартных пунктов меню бота
-		for ($i = 0; $i < count(CAMERA); $i++) { //Формирование списка всех камер для сообщения-сводки; Формирование списка всех ENABLED камер для меню бота.
+		for ($i = 0; $i < count(CAMERA); $i++) { //Формирование списка всех камер для сообщения-сводки
 			$cameras_status_string = $cameras_status_string . (pingInterface(CAMERA[$i]['CONFIG']['IP']) ? "\xF0\x9F\x9F\xA2" : "\xF0\x9F\x9F\xA0") . " /camera$i " . CAMERA[$i]['CONFIG']['NAME'] . "\n" . (CAMERA[$i]['ENABLED'] ? "ENABLED \xE2\x9E\x95, " : "ENABLED \xE2\x9E\x96, ") . (CAMERA[$i]['HISTORY_ENABLED'] ? "HISTORY \xE2\x9E\x95, " : "HISTORY \xE2\x9E\x96, ") . (CAMERA[$i]['REC_ENABLED'] ? "REC \xE2\x9E\x95" : "REC \xE2\x9E\x96") . "\n";
-			if (CAMERA[$i]['ENABLED']) { $bot_menu_commands[] = array('command' => "camera$i", 'description' => bot_dictonary("menu_button_command_camera_i_text", CAMERA[$i]['CONFIG']['NAME'])); }
-		}
-		if (featury_check_if_olny_one_camera_available(ADMIN_CHAT_ID) === false) { //Если камера не единственная добавляется пункт меню /all_cameras. (!) Важно, проверка производится от имени ADMIN_CHAT_ID и если он задан некорректно на момент инициализации или не имеет доступа ко всем камерам - логика отработает неверно.
-			$bot_menu_commands[] = array('command' => "all_cameras", 'description' => bot_dictonary("menu_button_command_all_cameras_text"));
 		}
 		$options_status_string = "\xE2\x9C\x85 OFFLINE_MODE " . ((OFFLINE_MODE) ? "\xE2\x9E\x95" : "\xE2\x9E\x96") . "\n\xE2\x9C\x85 DEBUG_MODE " . ((DEBUG_MODE) ? "\xE2\x9E\x95" : "\xE2\x9E\x96") . "\n\xE2\x9C\x85 DISABLE_SCHEDULER " . ((DISABLE_SCHEDULER) ? "\xE2\x9E\x95" : "\xE2\x9E\x96") . "\n\xE2\x9C\x85 DISABLE_RECORDER " . ((DISABLE_RECORDER) ? "\xE2\x9E\x95" : "\xE2\x9E\x96");
-		setMyCommands($bot_menu_commands); //В строке выше формирование списка основных опицй для сообщения-сводки
+		featury_setup_bot_menu();//Создаёт и устанавливает меню бота.  //В строке выше формирование списка основных опицй для сообщения-сводки
 		sendMessage(ADMIN_CHAT_ID, bot_dictonary("app_init_text", getTag(), $cameras_status_string, $options_status_string)); //Отправка сообщения-сводки с именем экзампляра или хоста, списком всех камер и основных опций.
 	}
 	
@@ -522,6 +516,18 @@
 			$inline_keyboard_keys[] = createInlineKey(bot_dictonary("button_get_album_text"), "album$camera_id 0");//Добавляет контекстную кнопку получения историй
 		}
 		return (!empty($inline_keyboard_keys)) ? createInlineKeyboard(...$inline_keyboard_keys) : null; //Если создана хоть одна кнопка возвращаем клавиатуру, иначе null
+	}
+
+	function featury_setup_bot_menu() {//Создаёт и устанавливает меню бота
+		$bot_menu_commands = array();
+		$bot_menu_commands[] = array('command' => "start", 'description' => bot_dictonary("menu_button_command_start_text")); //Добавление стандартных пунктов меню бота
+		for ($i = 0; $i < count(CAMERA); $i++) { //Формирование списка камер для меню бота
+			if ((CAMERA[$i]['ENABLED']) && !((isset(CAMERA[$i]['HIDE_FROM_BOT_MENU'])) && (CAMERA[$i]['HIDE_FROM_BOT_MENU']))) { $bot_menu_commands[] = array('command' => "camera$i", 'description' => bot_dictonary("menu_button_command_camera_i_text", CAMERA[$i]['CONFIG']['NAME'])); }
+		}//В меню добавляются все ENABLED камеры при отсутствии парамента HIDE_FROM_BOT_MENU=true
+		if (featury_check_if_olny_one_camera_available(ADMIN_CHAT_ID) === false) { //Если камера не единственная добавляется пункт меню /all_cameras. (!) Важно, проверка производится от имени ADMIN_CHAT_ID и если он задан некорректно на момент инициализации или не имеет доступа ко всем камерам - логика отработает неверно.
+			$bot_menu_commands[] = array('command' => "all_cameras", 'description' => bot_dictonary("menu_button_command_all_cameras_text"));
+		}
+		setMyCommands($bot_menu_commands);//Устанавливат меня запросом к Telegram API
 	}
 	
 	if ((!empty($argv)) && ($argc > 1)) { //Проверяет, запущено ли приложение через CLI и имеет ли более 1 агрумента (т.к. 1 это имя скрипта, следовательно, запуск без аргументов будет иметь $argc = 1)
