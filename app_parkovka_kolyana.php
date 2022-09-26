@@ -1,6 +1,6 @@
 <?php
 
-	//Parkovka Kolyana v 2022-09-25-22-15 https://t.me/skl256 https://github.com/skl256/parkovka_kolyana.git
+	//Parkovka Kolyana v 2022-09-26-19-45 https://t.me/skl256 https://github.com/skl256/parkovka_kolyana.git
 	
 	//Использование:
 	//0. Установить необходимые компоненты, если ещё не установлены: apt install -y nginx php php-fpm php-curl php-mbstring ffmpeg iputils-ping git cron
@@ -255,8 +255,8 @@
 	function command_start($from_id, $chat_id) { //Отправляет сообщение с приветсвием, инструкциями и списком камер
 		$status_sting = "";
 		sendChatAction($chat_id); //Отправляет в чат статус печатает
-		for ($i = 0; $i < count(CAMERA); $i++) { //Для администратора формируется список из всех камер, для остальных пользователей только доступных и разрешенных для данного пользователя
-			if (((CAMERA[$i]['ENABLED']) && (in_array($from_id, CAMERA[$i]['ACCESS']))) || ($from_id == ADMIN_CHAT_ID)) {
+		for ($i = 0; $i < count(CAMERA); $i++) { //Для администратора формируется список из всех камер, для остальных пользователей только доступных и разрешенных для данного пользователя//Кроме полностью скрытых камер, где HIDE_LEVEL >= 2
+			if ((((CAMERA[$i]['ENABLED']) && (in_array($from_id, CAMERA[$i]['ACCESS']))) || ($from_id == ADMIN_CHAT_ID)) && !((isset(CAMERA[$i]['HIDE_LEVEL'])) && (CAMERA[$i]['HIDE_LEVEL'] >= 2))) {
 				$status_sting = $status_sting . (pingInterface(CAMERA[$i]['CONFIG']['IP'], STATUS_PING_TIMEOUT) ? "\xF0\x9F\x9F\xA2" : "\xF0\x9F\x9F\xA1") . " /camera$i " . CAMERA[$i]['CONFIG']['NAME'] . (CAMERA[$i]['ENABLED'] ? "" : " \xF0\x9F\x9A\xA7") . "\n";
 			} //Те камеры, которые не ответили на проверку связи в течении установленного STATUS_PING_TIMEOUT кол-ва секунд помечаются жёлтым цветом
 		}
@@ -271,7 +271,7 @@
 			$images_from_all_available_cameras = array();
 			$available_cameras_cameras_count = 0;
 			for ($i = 0; $i < count(CAMERA); $i++) { //Перебирает все камеры
-				if ((CAMERA[$i]['ENABLED']) && (in_array($from_id, CAMERA[$i]['ACCESS']))) { //Проверят что камера ENABLED и у пользователя есть к ней доступ ACCESS
+				if (((CAMERA[$i]['ENABLED']) && (in_array($from_id, CAMERA[$i]['ACCESS']))) && !((isset(CAMERA[$i]['HIDE_LEVEL'])) && (CAMERA[$i]['HIDE_LEVEL'] >= 3))) { //Проверят что камера ENABLED и у пользователя есть к ней доступ ACCESS, и что камера не скрыта из меню и из /all_cameras, где HIDE_LEVEL >= 3
 					$available_cameras_cameras_count++;
 					$retry_count = ATTEMPTS_TO_GET_PHOTO_VIDEO;
 					$get_from_ip_webcam_result = false;
@@ -522,8 +522,8 @@
 		$bot_menu_commands = array();
 		$bot_menu_commands[] = array('command' => "start", 'description' => bot_dictonary("menu_button_command_start_text")); //Добавление стандартных пунктов меню бота
 		for ($i = 0; $i < count(CAMERA); $i++) { //Формирование списка камер для меню бота
-			if ((CAMERA[$i]['ENABLED']) && !((isset(CAMERA[$i]['HIDE_FROM_BOT_MENU'])) && (CAMERA[$i]['HIDE_FROM_BOT_MENU']))) { $bot_menu_commands[] = array('command' => "camera$i", 'description' => bot_dictonary("menu_button_command_camera_i_text", CAMERA[$i]['CONFIG']['NAME'])); }
-		}//В меню добавляются все ENABLED камеры при отсутствии парамента HIDE_FROM_BOT_MENU=true
+			if ((CAMERA[$i]['ENABLED']) && !((isset(CAMERA[$i]['HIDE_LEVEL'])) && (CAMERA[$i]['HIDE_LEVEL'] >= 1))) { $bot_menu_commands[] = array('command' => "camera$i", 'description' => bot_dictonary("menu_button_command_camera_i_text", CAMERA[$i]['CONFIG']['NAME'])); }
+		}//В меню добавляются все ENABLED камеры при отсутствии парамента HIDE_LEVEL >= 1
 		if (featury_check_if_olny_one_camera_available(ADMIN_CHAT_ID) === false) { //Если камера не единственная добавляется пункт меню /all_cameras. (!) Важно, проверка производится от имени ADMIN_CHAT_ID и если он задан некорректно на момент инициализации или не имеет доступа ко всем камерам - логика отработает неверно.
 			$bot_menu_commands[] = array('command' => "all_cameras", 'description' => bot_dictonary("menu_button_command_all_cameras_text"));
 		}
