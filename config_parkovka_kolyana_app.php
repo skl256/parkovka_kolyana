@@ -35,7 +35,7 @@
 		"task_history",
 		"task_rec",
 		"editMessageReplyMarkup",
-		"featury_setup_bot_menu"
+		"feature_setup_bot_menu"
 		)
 	);
 	
