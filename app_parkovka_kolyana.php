@@ -1,6 +1,6 @@
 <?php
 
-	//Parkovka Kolyana v 2022-09-22-01-00 https://t.me/skl256 https://github.com/skl256/parkovka_kolyana.git
+	//Parkovka Kolyana v 2022-09-26-21-45 https://t.me/skl256 https://github.com/skl256/parkovka_kolyana.git
 	
 	//Использование:
 	//0. Установить необходимые компоненты, если ещё не установлены: apt install -y nginx php php-fpm php-curl php-mbstring ffmpeg iputils-ping git cron
@@ -150,17 +150,11 @@
 		}
 		writeLog("PROCESS", "app_init() AT #" . getTag());
 		$cameras_status_string = "";
-		$bot_menu_commands = array();
-		$bot_menu_commands[] = array('command' => "start", 'description' => bot_dictonary("menu_button_command_start_text")); //Добавление стандартных пунктов меню бота
-		for ($i = 0; $i < count(CAMERA); $i++) { //Формирование списка всех камер для сообщения-сводки; Формирование списка всех ENABLED камер для меню бота.
+		for ($i = 0; $i < count(CAMERA); $i++) { //Формирование списка всех камер для сообщения-сводки
 			$cameras_status_string = $cameras_status_string . (pingInterface(CAMERA[$i]['CONFIG']['IP']) ? "\xF0\x9F\x9F\xA2" : "\xF0\x9F\x9F\xA0") . " /camera$i " . CAMERA[$i]['CONFIG']['NAME'] . "\n" . (CAMERA[$i]['ENABLED'] ? "ENABLED \xE2\x9E\x95, " : "ENABLED \xE2\x9E\x96, ") . (CAMERA[$i]['HISTORY_ENABLED'] ? "HISTORY \xE2\x9E\x95, " : "HISTORY \xE2\x9E\x96, ") . (CAMERA[$i]['REC_ENABLED'] ? "REC \xE2\x9E\x95" : "REC \xE2\x9E\x96") . "\n";
-			if (CAMERA[$i]['ENABLED']) { $bot_menu_commands[] = array('command' => "camera$i", 'description' => bot_dictonary("menu_button_command_camera_i_text", CAMERA[$i]['CONFIG']['NAME'])); }
-		}
-		if (featury_check_if_olny_one_camera_available(ADMIN_CHAT_ID) === false) { //Если камера не единственная добавляется пункт меню /all_cameras. (!) Важно, проверка производится от имени ADMIN_CHAT_ID и если он задан некорректно на момент инициализации или не имеет доступа ко всем камерам - логика отработает неверно.
-			$bot_menu_commands[] = array('command' => "all_cameras", 'description' => bot_dictonary("menu_button_command_all_cameras_text"));
 		}
 		$options_status_string = "\xE2\x9C\x85 OFFLINE_MODE " . ((OFFLINE_MODE) ? "\xE2\x9E\x95" : "\xE2\x9E\x96") . "\n\xE2\x9C\x85 DEBUG_MODE " . ((DEBUG_MODE) ? "\xE2\x9E\x95" : "\xE2\x9E\x96") . "\n\xE2\x9C\x85 DISABLE_SCHEDULER " . ((DISABLE_SCHEDULER) ? "\xE2\x9E\x95" : "\xE2\x9E\x96") . "\n\xE2\x9C\x85 DISABLE_RECORDER " . ((DISABLE_RECORDER) ? "\xE2\x9E\x95" : "\xE2\x9E\x96");
-		setMyCommands($bot_menu_commands); //В строке выше формирование списка основных опицй для сообщения-сводки
+		feature_setup_bot_menu();//Создаёт и устанавливает меню бота.  //В строке выше формирование списка основных опицй для сообщения-сводки
 		sendMessage(ADMIN_CHAT_ID, bot_dictonary("app_init_text", getTag(), $cameras_status_string, $options_status_string)); //Отправка сообщения-сводки с именем экзампляра или хоста, списком всех камер и основных опций.
 	}
 	
@@ -261,23 +255,23 @@
 	function command_start($from_id, $chat_id) { //Отправляет сообщение с приветсвием, инструкциями и списком камер
 		$status_sting = "";
 		sendChatAction($chat_id); //Отправляет в чат статус печатает
-		for ($i = 0; $i < count(CAMERA); $i++) { //Для администратора формируется список из всех камер, для остальных пользователей только доступных и разрешенных для данного пользователя
-			if (((CAMERA[$i]['ENABLED']) && (in_array($from_id, CAMERA[$i]['ACCESS']))) || ($from_id == ADMIN_CHAT_ID)) {
+		for ($i = 0; $i < count(CAMERA); $i++) { //Для администратора формируется список из всех камер, для остальных пользователей только доступных и разрешенных для данного пользователя//Кроме полностью скрытых камер, где HIDE_LEVEL >= 2
+			if ((((CAMERA[$i]['ENABLED']) && (in_array($from_id, CAMERA[$i]['ACCESS']))) || ($from_id == ADMIN_CHAT_ID)) && !((isset(CAMERA[$i]['HIDE_LEVEL'])) && (CAMERA[$i]['HIDE_LEVEL'] >= 2))) {
 				$status_sting = $status_sting . (pingInterface(CAMERA[$i]['CONFIG']['IP'], STATUS_PING_TIMEOUT) ? "\xF0\x9F\x9F\xA2" : "\xF0\x9F\x9F\xA1") . " /camera$i " . CAMERA[$i]['CONFIG']['NAME'] . (CAMERA[$i]['ENABLED'] ? "" : " \xF0\x9F\x9A\xA7") . "\n";
 			} //Те камеры, которые не ответили на проверку связи в течении установленного STATUS_PING_TIMEOUT кол-ва секунд помечаются жёлтым цветом
 		}
-		$all_cameras_string = (featury_check_if_olny_one_camera_available($from_id) === false) ? (bot_dictonary("command_start_all_cameras_add_text")) : (""); //Если камера не единственная добавляется строка с описанием команды /all_cameras
+		$all_cameras_string = (feature_check_if_olny_one_camera_available($from_id) === false) ? (bot_dictonary("command_start_all_cameras_add_text")) : (""); //Если камера не единственная добавляется строка с описанием команды /all_cameras
 		if (!empty(JUST_FOR_FUN_SEND_START_STICKER)) { sendSticker($chat_id, JUST_FOR_FUN_SEND_START_STICKER[rand(0, count(JUST_FOR_FUN_SEND_START_STICKER) - 1)]); } //Если в данном массиве JUST_FOR_FUN_SEND_START_STICKER имеются стикеры, один из них будет отправлен
 		sendMessage($chat_id, bot_dictonary("command_start_text", $status_sting, $all_cameras_string, SUPPORT_CONTACT[1], SUPPORT_CONTACT[2], ($from_id == ADMIN_CHAT_ID ? "\n\n#" . getTag() : "")));
 	}
 	
 	function command_all_cameras($from_id, $first_name, $chat_id) { //Отправляет фото со всех доступных ENABLED и доступных пользователю ACCESS камер, пропуская временнно недоступные
-		if (featury_check_if_olny_one_camera_available($from_id) === false) { //Если кол-во доступных камер не равно единице, действуем по логике команды /all_cameras
+		if (feature_check_if_olny_one_camera_available($from_id) === false) { //Если кол-во доступных камер не равно единице, действуем по логике команды /all_cameras
 			$wait_message_id = sendMessage($chat_id, bot_dictonary("wait_message_text")); //Отправляет сообщение с просьбой подождать, после получения любого резульата удаляет его
 			$images_from_all_available_cameras = array();
 			$available_cameras_cameras_count = 0;
 			for ($i = 0; $i < count(CAMERA); $i++) { //Перебирает все камеры
-				if ((CAMERA[$i]['ENABLED']) && (in_array($from_id, CAMERA[$i]['ACCESS']))) { //Проверят что камера ENABLED и у пользователя есть к ней доступ ACCESS
+				if (((CAMERA[$i]['ENABLED']) && (in_array($from_id, CAMERA[$i]['ACCESS']))) && !((isset(CAMERA[$i]['HIDE_LEVEL'])) && (CAMERA[$i]['HIDE_LEVEL'] >= 3))) { //Проверят что камера ENABLED и у пользователя есть к ней доступ ACCESS, и что камера не скрыта из меню и из /all_cameras, где HIDE_LEVEL >= 3
 					$available_cameras_cameras_count++;
 					$retry_count = ATTEMPTS_TO_GET_PHOTO_VIDEO;
 					$get_from_ip_webcam_result = false;
@@ -308,7 +302,7 @@
 				writeLog("ERROR", "USER CRITICAL - FAILED TO GET IMAGE FOR USER $from_id $first_name FROM ALL CAMERAS");
 			}
 		} else { //Если доступна всего 1 камера передаём параметры в функцию command_camera и выполняем действия аналогичные получению команды с явным указанием камеры
-			command_camera($from_id, $first_name, $chat_id, featury_check_if_olny_one_camera_available($from_id));
+			command_camera($from_id, $first_name, $chat_id, feature_check_if_olny_one_camera_available($from_id));
 		}
 	}
 	
@@ -355,8 +349,8 @@
 				$retry_count--;
 			} while ((!$get_from_ip_webcam_result) && ($retry_count > 0)); //При необходимости повторяет попытку
 			deleteMessage($chat_id, $wait_message_id); //Удаляет сообщение с просьбой подождать.
-			$filename = ($get_from_ip_webcam_result) ? ($get_from_ip_webcam_result) : (featury_get_last_available_photo($camera_id, $from_id, $filemtime)); //Если результат получения фото с камеры успешный, файл для отправки - полученное фото, иначе, пробудем получить последнее фото из историй (если соблюдены условия просмотра альбома)
-			$send_message_result = sendPhoto($chat_id, ($get_from_ip_webcam_result) ? (bot_dictonary("photo_sent_message_text")) : (bot_dictonary("last_photo_sent_message_text", date("Y.m.d H:i", $filemtime))), $filename, featury_make_inline_keyboard_for_photo($from_id, $camera_id, $get_from_ip_webcam_result)); //Не проверяя успешность пытаетмя отправить фото (т.к. если фото нет, отправка сообщения всё равно будет неудачной);
+			$filename = ($get_from_ip_webcam_result) ? ($get_from_ip_webcam_result) : (feature_get_last_available_photo($camera_id, $from_id, $filemtime)); //Если результат получения фото с камеры успешный, файл для отправки - полученное фото, иначе, пробудем получить последнее фото из историй (если соблюдены условия просмотра альбома)
+			$send_message_result = sendPhoto($chat_id, ($get_from_ip_webcam_result) ? (bot_dictonary("photo_sent_message_text")) : (bot_dictonary("last_photo_sent_message_text", date("Y.m.d H:i", $filemtime))), $filename, feature_make_inline_keyboard_for_photo($from_id, $camera_id, $get_from_ip_webcam_result)); //Не проверяя успешность пытаетмя отправить фото (т.к. если фото нет, отправка сообщения всё равно будет неудачной);
 			if ($send_message_result) { //При получении ответа об успешной отправке от Telegram API //Сообщает администратору об успешном выполнении пользовательской команды //Либо о не совсем успешном - когда получилось отправить только фото из альбома.
 				if (($get_from_ip_webcam_result) && (($from_id != ADMIN_CHAT_ID) && (NOTIFY_ADMIN_USER_ACTIONS_SUCCESS))) { sendMessage(ADMIN_CHAT_ID, bot_dictonary("message_to_admin_user_command_success_text", SUPPORT_CONTACT[0], $first_name, "фото", "/camera$camera_id"), createInlineKeyboard(createInlineKey(bot_dictonary("button_get_message_copy_text"), "get_message$send_message_result $chat_id"))); }
 				if ((!$get_from_ip_webcam_result) && (($from_id != ADMIN_CHAT_ID) && (NOTIFY_ADMIN_USER_ACTIONS_ERROR))) { sendMessage(ADMIN_CHAT_ID, bot_dictonary("message_to_admin_user_command_warn_text", SUPPORT_CONTACT[0], $first_name, "наверное свежую фотку", "/camera$camera_id", "только из альбома, свежей"), createInlineKeyboard(createInlineKey(bot_dictonary("button_get_message_copy_text"), "get_message$send_message_result $chat_id"))); }
@@ -478,7 +472,7 @@
 		} //Так как, кнопка вызова получения копии сообщения появляется только у администратора, данная проверка осуществяется только для целей дополнительной безопасности, и сценарий её Не прохождения маловероятен (поэтому действия else отсутствуют)
 	}
 	
-	function featury_get_last_available_photo($camera_id, $from_id, &$filemtime = 0) { //Получает последнее фото из альбома камеры (если камера ENABLED, истории HISTORY_ENABLED, и пользователь имеет доступ ACCESS и HISTORY_ACCESS
+	function feature_get_last_available_photo($camera_id, $from_id, &$filemtime = 0) { //Получает последнее фото из альбома камеры (если камера ENABLED, истории HISTORY_ENABLED, и пользователь имеет доступ ACCESS и HISTORY_ACCESS
 		if ((CAMERA[$camera_id]['ENABLED']) && (CAMERA[$camera_id]['HISTORY_ENABLED']) && (in_array($from_id, CAMERA[$camera_id]['ACCESS'])) && (in_array($from_id, CAMERA[$camera_id]['HISTORY_ACCESS']))) { //Проверяет что камера ENABLED и у пользователя есть к ней доступ ACCESS, дополнительно проверяет что истории включены HISTORY_ENABLED и у пользователя есть доступ к историям HISTORY_ACCESS
 			$history_filename = HISTORY_PATH . "history_CAMERA$camera_id" . "_" . CAMERA[$camera_id]['CONFIG']['NAME'] . "_" . LOG_PATH_SECRET . ".txt"; //Формирует имя файла где будет произведён поиск индекса историй
 			$history_file_lines = array();
@@ -487,16 +481,16 @@
 				if ((file_exists($history_file_lines[count($history_file_lines) - 1])) && (filesize($history_file_lines[count($history_file_lines) - 1]) > 0)) {
 					$last_available_photo = $history_file_lines[count($history_file_lines) - 1]; //Получает последнюю строку из history_file
 					$filemtime = filemtime($last_available_photo); //Получает дату изменения файла
-					writeLog("PROCESS", "featury_get_last_available_photo($camera_id, $from_id, filemtime) FOUND FILE: $last_available_photo FILEMTIME: $filemtime");
+					writeLog("PROCESS", "feature_get_last_available_photo($camera_id, $from_id, filemtime) FOUND FILE: $last_available_photo FILEMTIME: $filemtime");
 					return $last_available_photo;
 				}
 			}
 		}
-		writeLog("PROCESS", "featury_get_last_available_photo($camera_id, $from_id, filemtime) DOES NOT HAVE CONDITIONS FOR FILE SEARCH"); // Поиск произведён не будет, т.к. нет логических условий
+		writeLog("PROCESS", "feature_get_last_available_photo($camera_id, $from_id, filemtime) DOES NOT HAVE CONDITIONS FOR FILE SEARCH"); // Поиск произведён не будет, т.к. нет логических условий
 		return false;
 	}
 	
-	function featury_check_if_olny_one_camera_available($from_id) { //Проверка на ситауцию, когда пользователю доступна всего одна камера // (!) Важно при использовании функции в логике использовать сравнение === вместо == чтобы не путать значение false со значением $camera_id = 0
+	function feature_check_if_olny_one_camera_available($from_id) { //Проверка на ситауцию, когда пользователю доступна всего одна камера // (!) Важно при использовании функции в логике использовать сравнение === вместо == чтобы не путать значение false со значением $camera_id = 0
 		$available_cameras_cameras_count = 0;
 		$available_camera_id = null;
 		for ($i = 0; $i < count(CAMERA); $i++) { //Перебирает все камеры
@@ -512,7 +506,7 @@
 		}
 	}
 	
-	function featury_make_inline_keyboard_for_photo($from_id, $camera_id, $get_from_ip_webcam_result = false) { //Создаёт контекстную клавиатуру для отправки вместе с фото
+	function feature_make_inline_keyboard_for_photo($from_id, $camera_id, $get_from_ip_webcam_result = false) { //Создаёт контекстную клавиатуру для отправки вместе с фото
 		$inline_keyboard_keys = array();
 		$callback_requested_video_duration = (isset(CAMERA[$camera_id]['CALLBACK_REQUESTED_VIDEO_DURATION'])) ? CAMERA[$camera_id]['CALLBACK_REQUESTED_VIDEO_DURATION'] :  CALLBACK_REQUESTED_VIDEO_DURATION; //Дляительность видео, которое может запросить пользователь - если не определено для конкретной камеры то используем глобальный параметр
 		if (($callback_requested_video_duration != 0) && ($get_from_ip_webcam_result)) { //Если запрос видео не отключен (параметр длительности 0) и если фото было умпешно получено с камеры (get_from_ip_webcam_result != false)
@@ -522,6 +516,18 @@
 			$inline_keyboard_keys[] = createInlineKey(bot_dictonary("button_get_album_text"), "album$camera_id 0");//Добавляет контекстную кнопку получения историй
 		}
 		return (!empty($inline_keyboard_keys)) ? createInlineKeyboard(...$inline_keyboard_keys) : null; //Если создана хоть одна кнопка возвращаем клавиатуру, иначе null
+	}
+
+	function feature_setup_bot_menu() {//Создаёт и устанавливает меню бота
+		$bot_menu_commands = array();
+		$bot_menu_commands[] = array('command' => "start", 'description' => bot_dictonary("menu_button_command_start_text")); //Добавление стандартных пунктов меню бота
+		for ($i = 0; $i < count(CAMERA); $i++) { //Формирование списка камер для меню бота
+			if ((CAMERA[$i]['ENABLED']) && !((isset(CAMERA[$i]['HIDE_LEVEL'])) && (CAMERA[$i]['HIDE_LEVEL'] >= 1))) { $bot_menu_commands[] = array('command' => "camera$i", 'description' => bot_dictonary("menu_button_command_camera_i_text", CAMERA[$i]['CONFIG']['NAME'])); }
+		}//В меню добавляются все ENABLED камеры при отсутствии парамента HIDE_LEVEL >= 1
+		if (feature_check_if_olny_one_camera_available(ADMIN_CHAT_ID) === false) { //Если камера не единственная добавляется пункт меню /all_cameras. (!) Важно, проверка производится от имени ADMIN_CHAT_ID и если он задан некорректно на момент инициализации или не имеет доступа ко всем камерам - логика отработает неверно.
+			$bot_menu_commands[] = array('command' => "all_cameras", 'description' => bot_dictonary("menu_button_command_all_cameras_text"));
+		}
+		setMyCommands($bot_menu_commands);//Устанавливат меня запросом к Telegram API
 	}
 	
 	if ((!empty($argv)) && ($argc > 1)) { //Проверяет, запущено ли приложение через CLI и имеет ли более 1 агрумента (т.к. 1 это имя скрипта, следовательно, запуск без аргументов будет иметь $argc = 1)
